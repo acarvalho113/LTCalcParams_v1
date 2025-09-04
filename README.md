@@ -20,7 +20,7 @@
 ## Fluxo do sistema:
 Basicamente o sistema funciona em loop até a etapa de entrada das posições do condutores, pois ao final da identificação dos pontos correspondentes, o sistema vai plotar um gráfico com a representação das distâncias de disposições dos condutores, para que assim o usuário possa validar se os dados foram corretamente preenchidos nessa etapa de suma importância. Caso queira, o usuário pode refutar a LT representada graficamente e refazer o preenchimento das posições de cada grupo de condutores, podendo fazer esse processo até que alcance a distribuição desejada.
 
-# Dependências:
+## Dependências:
 - numpy
 - math
 - cmath (log, sqrt)
