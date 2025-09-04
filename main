@@ -511,7 +511,7 @@ def calcularMatrizImpedancia(index_pararaios, index_neutros, index_fases, rca_pa
   matriz_z = m1 + m2 + m3 + m4
   print(f"\n -> Matriz Z:\n {matriz_z}")
   matriz_z_med = getMatrizValoresMedios(dim_matriz, matriz_z)
-  if matriz_z_med != None:
+  if len(matriz_z_med) > 0:
     print(f"\n -> Matriz Z Média (Zf e Zm):\n {matriz_z_med}")
   while (dim_matriz)>3:
     # Calcula a matriz reduzida
@@ -524,7 +524,7 @@ def calcularMatrizImpedancia(index_pararaios, index_neutros, index_fases, rca_pa
     print(f"\n -> Matriz Zred:   [Para-Raios={numPararaios}, Neutros={numNeutros}, Fases={numFases}]")
     print(f" {matriz_reduzida}")
     matriz_red_med = getMatrizValoresMedios(dim_matriz, matriz_reduzida)
-    if matriz_red_med != None:
+    if len(matriz_red_med) > 0:
       print(f"\n -> Matriz Zred Média (Zf e Zm):\n {matriz_red_med}")
     # Atualiza os índices
     index_pararaios, index_neutros, index_fases = atualizarIndices(numPararaios, numNeutros, numFases)
