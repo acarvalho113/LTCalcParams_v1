@@ -563,13 +563,13 @@ def calcularMatrizCapacitancia(dim_matriz, ltExt_km, distancias, distancias_cond
 def main():
   running = True
   while running:
+    clear_output()
+    numPararaios, numNeutros, numFases, ltExt_km = getDadosLinha()
+    clear_output()
+    pararaio_rmg_m, pararaio_rca60hz, neutro_rmg_m, neutro_rca60hz, fase_rmg_m, fase_rca60hz = getDadosCondutores(numPararaios, numNeutros)
+    dim_matriz, index_pararaios, index_neutros, index_fases = getDimensaoMatriz(numPararaios, numNeutros, numFases)
     ltChecked = False
     while ltChecked == False:
-      clear_output()
-      numPararaios, numNeutros, numFases, ltExt_km = getDadosLinha()
-      clear_output()
-      pararaio_rmg_m, pararaio_rca60hz, neutro_rmg_m, neutro_rca60hz, fase_rmg_m, fase_rca60hz = getDadosCondutores(numPararaios, numNeutros)
-      dim_matriz, index_pararaios, index_neutros, index_fases = getDimensaoMatriz(numPararaios, numNeutros, numFases)
       clear_output()
       posicoes_cond, posicoes_img = getPosicoesCondutores(index_pararaios, index_neutros, index_fases)
       distancias, distancias_cond_img = getDistanciasCondutores(index_pararaios, index_neutros, index_fases, pararaio_rmg_m, neutro_rmg_m, fase_rmg_m, posicoes_cond, posicoes_img)
