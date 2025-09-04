@@ -1,0 +1,589 @@
+# # # # # # # #
+# Bibliotecas #
+# # # # # # # #
+import numpy as np
+import math
+from cmath import log, sqrt
+from enum import Enum
+from matplotlib import pyplot as plt
+import networkx as nx
+import os
+
+
+# # # # # # # # # # 
+#      Classes    #
+# # # # # # # # # # 
+class TTipoCondutor(Enum):
+  FASE = 0
+  NEUTRO = 1
+  PARA_RAIO = 2
+  
+
+# # # # # # # # # # 
+#   Constantes    #
+# # # # # # # # # # 
+U_0 = 4 * np.pi * 1e-7  # Permeabilidade magnética do vácuo (H/m)
+E_0 = 8.854187817e-12  # Permissividade elétrica do vácuo (F/m)
+W = 2 * math.pi * 60  # Frequência angular (rad/s)
+RHO_SOLO = 100 # Resistividade do solo (Ω.m)
+DELTA = 658 * math.pow(RHO_SOLO / 60, 0.5)
+POS_X = 0
+POS_Y = 1
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Tabela com valores de interesse - "Cabos de Alumínio Nu com Alma de Aço - CAA (Série KCMIL)"  #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+FIELD_BITOLA_KCMIL = "bitola_kcmil"
+FIELD_SECAONOMINAL_MM2 = "secaoNominal_mm2"
+FIELD_RMG_M = "rmg_m"
+FIELD_RESIST_CA_60HZ_75C_OHMdivKM = "rCA60Hz75C_Ohm/km"
+FIELD_REAT_INDUT_OHMdivKM = "reatIndut_Ohm/km"
+FIELD_REAT_CAPA_OHMprodKM = "reatCapa_MOhm.km"
+TABELA_MCM_NEXANS = {'OWL': {'bitola_kcmil': 266.8, 'secaoNominal_mm2': 153.0, 'rmg_m': 0.00617, 'rCA60Hz75C_Ohm/km': 0.301, 'reatIndut_Ohm/km': 0.3837, 'reatCapa_MOhm.km': 0.2303},
+                     'WAXWING': {'bitola_kcmil': 266.8, 'secaoNominal_mm2': 142.48, 'rmg_m': 0.006, 'rCA60Hz75C_Ohm/km': 0.303, 'reatIndut_Ohm/km': 0.3858, 'reatCapa_MOhm.km': 0.2321},
+                     'PARTRIDGE': {'bitola_kcmil': 266.8, 'secaoNominal_mm2': 156.86, 'rmg_m': 0.00661, 'rCA60Hz75C_Ohm/km': 0.255, 'reatIndut_Ohm/km': 0.3785, 'reatCapa_MOhm.km': 0.2296},
+                     'OSTRICH': {'bitola_kcmil': 300.0, 'secaoNominal_mm2': 176.9, 'rmg_m': 0.00701, 'rCA60Hz75C_Ohm/km': 0.227, 'reatIndut_Ohm/km': 0.3741, 'reatCapa_MOhm.km': 0.2268},
+                     'MERLIN': {'bitola_kcmil': 336.4, 'secaoNominal_mm2': 179.68, 'rmg_m': 0.00674, 'rCA60Hz75C_Ohm/km': 0.205, 'reatIndut_Ohm/km': 0.377, 'reatCapa_MOhm.km': 0.2266},
+                     'LINNET': {'bitola_kcmil': 336.4, 'secaoNominal_mm2': 198.38, 'rmg_m': 0.00742, 'rCA60Hz75C_Ohm/km': 0.203, 'reatIndut_Ohm/km': 0.3698, 'reatCapa_MOhm.km': 0.2241},
+                     'ORIOLE': {'bitola_kcmil': 336.4, 'secaoNominal_mm2': 210.28, 'rmg_m': 0.00778, 'rCA60Hz75C_Ohm/km': 0.201, 'reatIndut_Ohm/km': 0.3662, 'reatCapa_MOhm.km': 0.2227},
+                     'CHICKADEE': {'bitola_kcmil': 397.5, 'secaoNominal_mm2': 212.09, 'rmg_m': 0.00733, 'rCA60Hz75C_Ohm/km': 0.173, 'reatIndut_Ohm/km': 0.3708, 'reatCapa_MOhm.km': 0.2226},
+                     'BRANT': {'bitola_kcmil': 397.5, 'secaoNominal_mm2': 227.69, 'rmg_m': 0.00788, 'rCA60Hz75C_Ohm/km': 0.174, 'reatIndut_Ohm/km': 0.3653, 'reatCapa_MOhm.km': 0.2208},
+                     'IBIS': {'bitola_kcmil': 397.5, 'secaoNominal_mm2': 234.07, 'rmg_m': 0.00807, 'rCA60Hz75C_Ohm/km': 0.172, 'reatIndut_Ohm/km': 0.3635, 'reatCapa_MOhm.km': 0.2201},
+                     'LARK': {'bitola_kcmil': 397.5, 'secaoNominal_mm2': 247.78, 'rmg_m': 0.00846, 'rCA60Hz75C_Ohm/km': 0.17, 'reatIndut_Ohm/km': 0.3599, 'reatCapa_MOhm.km': 0.2187},
+                     'PELICAN': {'bitola_kcmil': 477.0, 'secaoNominal_mm2': 255.77, 'rmg_m': 0.00803, 'rCA60Hz75C_Ohm/km': 0.145, 'reatIndut_Ohm/km': 0.3639, 'reatCapa_MOhm.km': 0.2182},
+                     'FLICKER': {'bitola_kcmil': 477.0, 'secaoNominal_mm2': 272.98, 'rmg_m': 0.00863, 'rCA60Hz75C_Ohm/km': 0.144, 'reatIndut_Ohm/km': 0.3584, 'reatCapa_MOhm.km': 0.2164},
+                     'HAWK': {'bitola_kcmil': 477.0, 'secaoNominal_mm2': 281.14, 'rmg_m': 0.00884, 'rCA60Hz75C_Ohm/km': 0.144, 'reatIndut_Ohm/km': 0.3566, 'reatCapa_MOhm.km': 0.2158},
+                     'HEN': {'bitola_kcmil': 477.0, 'secaoNominal_mm2': 297.57, 'rmg_m': 0.00926, 'rCA60Hz75C_Ohm/km': 0.142, 'reatIndut_Ohm/km': 0.3531, 'reatCapa_MOhm.km': 0.2144},
+                     'OSPREY': {'bitola_kcmil': 556.5, 'secaoNominal_mm2': 298.16, 'rmg_m': 0.00867, 'rCA60Hz75C_Ohm/km': 0.124, 'reatIndut_Ohm/km': 0.3581, 'reatCapa_MOhm.km': 0.2146},
+                     'PARAKEET': {'bitola_kcmil': 556.5, 'secaoNominal_mm2': 318.91, 'rmg_m': 0.00932, 'rCA60Hz75C_Ohm/km': 0.124, 'reatIndut_Ohm/km': 0.3526, 'reatCapa_MOhm.km': 0.2127},
+                     'DOVE': {'bitola_kcmil': 556.5, 'secaoNominal_mm2': 328.51, 'rmg_m': 0.0955, 'rCA60Hz75C_Ohm/km': 0.123, 'reatIndut_Ohm/km': 0.3508, 'reatCapa_MOhm.km': 0.2121},
+                     'EAGLE': {'bitola_kcmil': 556.5, 'secaoNominal_mm2': 347.89, 'rmg_m': 0.01, 'rCA60Hz75C_Ohm/km': 0.122, 'reatIndut_Ohm/km': 0.3473, 'reatCapa_MOhm.km': 0.2107},
+                     'PEACOCK': {'bitola_kcmil': 605.0, 'secaoNominal_mm2': 345.91, 'rmg_m': 0.00972, 'rCA60Hz75C_Ohm/km': 0.114, 'reatIndut_Ohm/km': 0.3494, 'reatCapa_MOhm.km': 0.2107},
+                     'SQUAB': {'bitola_kcmil': 605.0, 'secaoNominal_mm2': 355.64, 'rmg_m': 0.00996, 'rCA60Hz75C_Ohm/km': 0.113, 'reatIndut_Ohm/km': 0.3476, 'reatCapa_MOhm.km': 0.2101},
+                     'WOOD': {'bitola_kcmil': 605.0, 'secaoNominal_mm2': 378.71, 'rmg_m': 0.01043, 'rCA60Hz75C_Ohm/km': 0.113, 'reatIndut_Ohm/km': 0.3441, 'reatCapa_MOhm.km': 0.2087},
+                     'TEAL': {'bitola_kcmil': 605.0, 'secaoNominal_mm2': 376.68, 'rmg_m': 0.01043, 'rCA60Hz75C_Ohm/km': 0.112, 'reatIndut_Ohm/km': 0.3441, 'reatCapa_MOhm.km': 0.2087},
+                     'DUCK': {'bitola_kcmil': 605.0, 'secaoNominal_mm2': 346.67, 'rmg_m': 0.0098, 'rCA60Hz75C_Ohm/km': 0.112, 'reatIndut_Ohm/km': 0.3488, 'reatCapa_MOhm.km': 0.2107},
+                     'KINGBIRD': {'bitola_kcmil': 636.0, 'secaoNominal_mm2': 340.96, 'rmg_m': 0.00927, 'rCA60Hz75C_Ohm/km': 0.106, 'reatIndut_Ohm/km': 0.353, 'reatCapa_MOhm.km': 0.2114},
+                     'ROOK': {'bitola_kcmil': 636.0, 'secaoNominal_mm2': 364.95, 'rmg_m': 0.00997, 'rCA60Hz75C_Ohm/km': 0.108, 'reatIndut_Ohm/km': 0.3475, 'reatCapa_MOhm.km': 0.2095},
+                     'GROSBEAK': {'bitola_kcmil': 636.0, 'secaoNominal_mm2': 374.33, 'rmg_m': 0.01021, 'rCA60Hz75C_Ohm/km': 0.108, 'reatIndut_Ohm/km': 0.3457, 'reatCapa_MOhm.km': 0.2089},
+                     'SCOTER': {'bitola_kcmil': 636.0, 'secaoNominal_mm2': 397.82, 'rmg_m': 0.0107, 'rCA60Hz75C_Ohm/km': 0.108, 'reatIndut_Ohm/km': 0.3422, 'reatCapa_MOhm.km': 0.2075},
+                     'EGRET': {'bitola_kcmil': 636.0, 'secaoNominal_mm2': 396.1, 'rmg_m': 0.0107, 'rCA60Hz75C_Ohm/km': 0.107, 'reatIndut_Ohm/km': 0.3422, 'reatCapa_MOhm.km': 0.2075},
+                     'SWIFT': {'bitola_kcmil': 636.0, 'secaoNominal_mm2': 331.2, 'rmg_m': 0.00919, 'rCA60Hz75C_Ohm/km': 0.106, 'reatIndut_Ohm/km': 0.3537, 'reatCapa_MOhm.km': 0.2119},
+                     'GOOSE': {'bitola_kcmil': 636.0, 'secaoNominal_mm2': 364.95, 'rmg_m': 0.01004, 'rCA60Hz75C_Ohm/km': 0.107, 'reatIndut_Ohm/km': 0.347, 'reatCapa_MOhm.km': 0.2096},
+                     'FLAMINGO': {'bitola_kcmil': 666.6, 'secaoNominal_mm2': 380.99, 'rmg_m': 0.0102, 'rCA60Hz75C_Ohm/km': 0.103, 'reatIndut_Ohm/km': 0.3458, 'reatCapa_MOhm.km': 0.2084},
+                     'GANNET': {'bitola_kcmil': 666.6, 'secaoNominal_mm2': 393.16, 'rmg_m': 0.01045, 'rCA60Hz75C_Ohm/km': 0.103, 'reatIndut_Ohm/km': 0.344, 'reatCapa_MOhm.km': 0.2078},
+                     'STILT': {'bitola_kcmil': 715.5, 'secaoNominal_mm2': 410.15, 'rmg_m': 0.01057, 'rCA60Hz75C_Ohm/km': 0.096, 'reatIndut_Ohm/km': 0.3431, 'reatCapa_MOhm.km': 0.2067},
+                     'STARLING': {'bitola_kcmil': 715.5, 'secaoNominal_mm2': 421.08, 'rmg_m': 0.01083, 'rCA60Hz75C_Ohm/km': 0.096, 'reatIndut_Ohm/km': 0.3413, 'reatCapa_MOhm.km': 0.2061},
+                     'REDWING': {'bitola_kcmil': 715.5, 'secaoNominal_mm2': 446.47, 'rmg_m': 0.01134, 'rCA60Hz75C_Ohm/km': 0.095, 'reatIndut_Ohm/km': 0.3378, 'reatCapa_MOhm.km': 0.2047},
+                     'CUCKOO': {'bitola_kcmil': 795.0, 'secaoNominal_mm2': 454.48, 'rmg_m': 0.01114, 'rCA60Hz75C_Ohm/km': 0.086, 'reatIndut_Ohm/km': 0.3391, 'reatCapa_MOhm.km': 0.2042},
+                     'DRAKE': {'bitola_kcmil': 795.0, 'secaoNominal_mm2': 468.0, 'rmg_m': 0.01142, 'rCA60Hz75C_Ohm/km': 0.086, 'reatIndut_Ohm/km': 0.3373, 'reatCapa_MOhm.km': 0.2035},
+                     'MALLARD': {'bitola_kcmil': 795.0, 'secaoNominal_mm2': 495.62, 'rmg_m': 0.01196, 'rCA60Hz75C_Ohm/km': 0.086, 'reatIndut_Ohm/km': 0.3338, 'reatCapa_MOhm.km': 0.2022},
+                     'COOT': {'bitola_kcmil': 795.0, 'secaoNominal_mm2': 413.9, 'rmg_m': 0.01092, 'rCA60Hz75C_Ohm/km': 0.085, 'reatIndut_Ohm/km': 0.3407, 'reatCapa_MOhm.km': 0.2065},
+                     'TERN': {'bitola_kcmil': 795.0, 'secaoNominal_mm2': 431.6, 'rmg_m': 0.01072, 'rCA60Hz75C_Ohm/km': 0.088, 'reatIndut_Ohm/km': 0.3421, 'reatCapa_MOhm.km': 0.2055},
+                     'CONDOR': {'bitola_kcmil': 795.0, 'secaoNominal_mm2': 454.48, 'rmg_m': 0.01123, 'rCA60Hz75C_Ohm/km': 0.087, 'reatIndut_Ohm/km': 0.3386, 'reatCapa_MOhm.km': 0.2042},
+                     'RUDDY': {'bitola_kcmil': 900.0, 'secaoNominal_mm2': 487.17, 'rmg_m': 0.01141, 'rCA60Hz75C_Ohm/km': 0.077, 'reatIndut_Ohm/km': 0.3374, 'reatCapa_MOhm.km': 0.2025},
+                     'CANARY': {'bitola_kcmil': 900.0, 'secaoNominal_mm2': 515.43, 'rmg_m': 0.01195, 'rCA60Hz75C_Ohm/km': 0.077, 'reatIndut_Ohm/km': 0.3339, 'reatCapa_MOhm.km': 0.2013},
+                     'RAIL': {'bitola_kcmil': 954.0, 'secaoNominal_mm2': 517.39, 'rmg_m': 0.01174, 'rCA60Hz75C_Ohm/km': 0.073, 'reatIndut_Ohm/km': 0.3352, 'reatCapa_MOhm.km': 0.2011},
+                     'CARDINAL': {'bitola_kcmil': 954.0, 'secaoNominal_mm2': 547.34, 'rmg_m': 0.0123, 'rCA60Hz75C_Ohm/km': 0.073, 'reatIndut_Ohm/km': 0.3317, 'reatCapa_MOhm.km': 0.1999},
+                     'ORTOLAN': {'bitola_kcmil': 1033.5, 'secaoNominal_mm2': 560.18, 'rmg_m': 0.01222, 'rCA60Hz75C_Ohm/km': 0.068, 'reatIndut_Ohm/km': 0.3322, 'reatCapa_MOhm.km': 0.1992},
+                     'CURLEW': {'bitola_kcmil': 1033.5, 'secaoNominal_mm2': 590.25, 'rmg_m': 0.0128, 'rCA60Hz75C_Ohm/km': 0.067, 'reatIndut_Ohm/km': 0.3287, 'reatCapa_MOhm.km': 0.198},
+                     'BLUEJAY': {'bitola_kcmil': 1113.0, 'secaoNominal_mm2': 604.39, 'rmg_m': 0.01269, 'rCA60Hz75C_Ohm/km': 0.063, 'reatIndut_Ohm/km': 0.3293, 'reatCapa_MOhm.km': 0.1975},
+                     'FINCH': {'bitola_kcmil': 1113.0, 'secaoNominal_mm2': 636.6, 'rmg_m': 0.01329, 'rCA60Hz75C_Ohm/km': 0.063, 'reatIndut_Ohm/km': 0.3258, 'reatCapa_MOhm.km': 0.1962},
+                     'BUNTING': {'bitola_kcmil': 1192.5, 'secaoNominal_mm2': 647.64, 'rmg_m': 0.01313, 'rCA60Hz75C_Ohm/km': 0.059, 'reatIndut_Ohm/km': 0.3268, 'reatCapa_MOhm.km': 0.1958},
+                     'GRACKLE': {'bitola_kcmil': 1192.5, 'secaoNominal_mm2': 679.68, 'rmg_m': 0.01376, 'rCA60Hz75C_Ohm/km': 0.056, 'reatIndut_Ohm/km': 0.3232, 'reatCapa_MOhm.km': 0.1945},
+                     'BITTERN': {'bitola_kcmil': 1272.0, 'secaoNominal_mm2': 689.07, 'rmg_m': 0.01356, 'rCA60Hz75C_Ohm/km': 0.056, 'reatIndut_Ohm/km': 0.3243, 'reatCapa_MOhm.km': 0.1943},
+                     'PHEASANT': {'bitola_kcmil': 1272.0, 'secaoNominal_mm2': 726.79, 'rmg_m': 0.01421, 'rCA60Hz75C_Ohm/km': 0.055, 'reatIndut_Ohm/km': 0.3208, 'reatCapa_MOhm.km': 0.193},
+                     'DIPPER': {'bitola_kcmil': 1351.0, 'secaoNominal_mm2': 731.44, 'rmg_m': 0.01398, 'rCA60Hz75C_Ohm/km': 0.053, 'reatIndut_Ohm/km': 0.322, 'reatCapa_MOhm.km': 0.1928},
+                     'MARTIN': {'bitola_kcmil': 1351.0, 'secaoNominal_mm2': 772.06, 'rmg_m': 0.01464, 'rCA60Hz75C_Ohm/km': 0.052, 'reatIndut_Ohm/km': 0.3185, 'reatCapa_MOhm.km': 0.1916},
+                     'BOBOLINK': {'bitola_kcmil': 1431.0, 'secaoNominal_mm2': 775.41, 'rmg_m': 0.01438, 'rCA60Hz75C_Ohm/km': 0.05, 'reatIndut_Ohm/km': 0.3199, 'reatCapa_MOhm.km': 0.1915},
+                     'PLOVER': {'bitola_kcmil': 1431.0, 'secaoNominal_mm2': 818.7, 'rmg_m': 0.01507, 'rCA60Hz75C_Ohm/km': 0.05, 'reatIndut_Ohm/km': 0.3164, 'reatCapa_MOhm.km': 0.1902},
+                     'NUTHATCH': {'bitola_kcmil': 1510.0, 'secaoNominal_mm2': 817.03, 'rmg_m': 0.01477, 'rCA60Hz75C_Ohm/km': 0.048, 'reatIndut_Ohm/km': 0.3179, 'reatCapa_MOhm.km': 0.1902},
+                     'PARROT': {'bitola_kcmil': 1510.0, 'secaoNominal_mm2': 863.09, 'rmg_m': 0.01548, 'rCA60Hz75C_Ohm/km': 0.047, 'reatIndut_Ohm/km': 0.3144, 'reatCapa_MOhm.km': 0.1889},
+                     'LAPWING': {'bitola_kcmil': 1590.0, 'secaoNominal_mm2': 863.13, 'rmg_m': 0.01516, 'rCA60Hz75C_Ohm/km': 0.045, 'reatIndut_Ohm/km': 0.3159, 'reatCapa_MOhm.km': 0.1889},
+                     'FALCON': {'bitola_kcmil': 1590.0, 'secaoNominal_mm2': 908.66, 'rmg_m': 0.01589, 'rCA60Hz75C_Ohm/km': 0.045, 'reatIndut_Ohm/km': 0.3124, 'reatCapa_MOhm.km': 0.1877},
+                     'CHUKAR': {'bitola_kcmil': 1780.0, 'secaoNominal_mm2': 976.72, 'rmg_m': 0.01628, 'rCA60Hz75C_Ohm/km': 0.041, 'reatIndut_Ohm/km': 0.3105, 'reatCapa_MOhm.km': 0.1859},
+                     'BLUEBIRD': {'bitola_kcmil': 2156.0, 'secaoNominal_mm2': 1181.69, 'rmg_m': 0.01791, 'rCA60Hz75C_Ohm/km': 0.034, 'reatIndut_Ohm/km': 0.3033, 'reatCapa_MOhm.km': 0.1814},
+                     'KIWI': {'bitola_kcmil': 2167.0, 'secaoNominal_mm2': 1147.29, 'rmg_m': 0.01738, 'rCA60Hz75C_Ohm/km': 0.035, 'reatIndut_Ohm/km': 0.3056, 'reatCapa_MOhm.km': 0.1821},
+                     'THRASHER': {'bitola_kcmil': 2312.0, 'secaoNominal_mm2': 1235.36, 'rmg_m': 0.01815, 'rCA60Hz75C_Ohm/km': 0.033, 'reatIndut_Ohm/km': 0.3024, 'reatCapa_MOhm.km': 0.1803}}
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# Funções de compatibilidade entre Windows e Google Colab #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+def clear_output():
+    os.system('cls')
+
+
+# # # # # # # # # # # # # # # # # # # #
+# Funcões para manipulações de matriz #
+# # # # # # # # # # # # # # # # # # # #
+def inverterMatriz(matriz):
+  return np.linalg.inv(matriz)
+
+def getMatrizReduzida(matriz_Atual, index_Pararaios, index_Neutros, index_Fases):
+  # Aplicando a redução da matriz, se houver para-raios ou neutros
+  num_Pararaios = len(index_Pararaios)
+  num_Neutros = len(index_Neutros)
+  num_Fases = len(index_Fases)
+  matriz_zff = np.zeros((num_Fases, num_Fases), dtype=complex)
+  matriz_zfn = None
+  matriz_znf = None
+  matriz_znn = None
+  matriz_zfr = None
+  matriz_zrf = None
+  matriz_zrr = None
+  if num_Neutros > 0:
+    matriz_zfn = np.zeros((num_Fases, num_Neutros), dtype=complex)
+    matriz_znf = np.zeros((num_Neutros, num_Fases), dtype=complex)
+    matriz_znn = np.zeros((num_Neutros, num_Neutros), dtype=complex)
+  if num_Pararaios > 0:
+    matriz_zfr = np.zeros((num_Fases, num_Pararaios), dtype=complex)
+    matriz_zrf = np.zeros((num_Pararaios, num_Fases), dtype=complex)
+    matriz_zrr = np.zeros((num_Pararaios, num_Pararaios), dtype=complex)
+  dim_matriz = num_Fases + num_Neutros + num_Pararaios
+  for i in range(dim_matriz):
+    for j in range(dim_matriz):
+      if i in index_Neutros and j in index_Neutros:
+        matriz_znn[(i-index_Neutros[0]),(j-index_Neutros[0])] = matriz_Atual[i,j]
+      elif i in index_Pararaios and j in index_Pararaios:
+        matriz_zrr[(i-index_Pararaios[0]),(j-index_Pararaios[0])] = matriz_Atual[i,j]
+      elif i in index_Neutros and j in index_Fases:
+        matriz_znf[(i-index_Neutros[0]),(j-index_Fases[0])] = matriz_Atual[i,j]
+      elif i in index_Pararaios and j in index_Fases:
+        matriz_zrf[(i-index_Pararaios[0]),(j-index_Fases[0])] = matriz_Atual[i,j]
+      elif i in index_Fases and j in index_Neutros:
+        matriz_zfn[(i-index_Fases[0]),(j-index_Neutros[0])] = matriz_Atual[i,j]
+      elif i in index_Fases and j in index_Pararaios:
+        matriz_zfr[(i-index_Fases[0]),(j-index_Pararaios[0])] = matriz_Atual[i,j]
+      elif i in index_Fases and j in index_Fases:
+        matriz_zff[(i-index_Fases[0]),(j-index_Fases[0])] = matriz_Atual[i,j]
+  if matriz_zrr:
+    print(f"\n - Matriz Zrr:\n {matriz_zrr}")
+    print(f"\n - Matriz Zrf:\n {matriz_zrf}")
+    print(f"\n - Matriz Zfr:\n {matriz_zfr}")
+  if matriz_znn:
+    print(f"\n - Matriz Znn:\n {matriz_znn}")
+    print(f"\n - Matriz Znf:\n {matriz_znf}")
+    print(f"\n - Matriz Zfn:\n {matriz_zfn}")
+  print(f"\n - Matriz Zff:\n {matriz_zff}")
+  # Matriz reduzida
+  matriz_zred = np.zeros((dim_matriz-1, dim_matriz-1), dtype=complex)
+  if matriz_zrr:
+    matriz_zred = matriz_zff - (matriz_zfr * inverterMatriz(matriz_zrr) * matriz_zrf)
+  elif matriz_znn:
+    matriz_zred = matriz_zff - (matriz_zfn * inverterMatriz(matriz_znn) * matriz_znf)
+  return matriz_zred
+
+def getMatrizValoresMedios(dim_matriz, matriz_orig):
+  # Analisa os valores da diag. principal
+  matriz_result = None
+  diag_principal_lst = [] # Monta uma lista para ter todos os valores encontrados
+  diag_principal_set = set() # Monta um set para armazenar uma vez cada valor encontrado
+  valores_vm = {} # Monta um dicionário, para contarmos quantas vezes cada valor foi encontrado
+  for i in range(dim_matriz):
+    for j in range(dim_matriz):
+      if i == j:
+        if matriz_orig[i,j] < 0:
+          diag_principal_lst.append(matriz_orig[i,j]*-1)
+          diag_principal_set.add(matriz_orig[i,j]*-1)
+        else:
+          diag_principal_lst.append(matriz_orig[i,j])
+          diag_principal_set.add(matriz_orig[i,j])        
+      else:
+        # Os valores de "vm" são armazenados contando quantas vezes se repetem
+        if matriz_orig[i,j] < 0:
+          if valores_vm.get(matriz_orig[i,j]*-1):
+            valores_vm[matriz_orig[i,j]*-1] += 1 # Se já existe, soma 1
+          else:
+            valores_vm[matriz_orig[i,j]*-1] = 1 # Senão, cria a chave com valor 1
+        else:
+          if valores_vm.get(matriz_orig[i,j]):
+            valores_vm[matriz_orig[i,j]] += 1 # Se já existe, soma 1
+          else:
+            valores_vm[matriz_orig[i,j]] = 1 # Senão, cria a chave com valor 1
+  media_vf = None
+  media_vm = None
+  # Se os valores da diag. principal são diferentes, calcula-se a média
+  if len(diag_principal_set) > 1: # Contamos o set que só armazena uma incidência de cada valor
+    # O valor "vf" é dado pela média da própria diag. principal, então precisamos utilizar a lista, para ter acesso a todos os valores encontrados
+    media_vf = sum(diag_principal_lst) / len(diag_principal_lst)
+    # O valor médio de "vm" é dado pela média dos valores das demais posições
+    media_vm = 0
+    div = 0
+    for key in valores_vm:
+      # Somamos o valor que está no dict, pois key="ValorEncontrado" e value="QtdEncontrada"
+      media_vm += key * valores_vm[key] # QtdEncontrada * ValorEncontrado
+      div += valores_vm[key] # Somatório das qtd encontradas
+    media_vm = (media_vm ) / (div)
+  # Depois de recalcular os valores da matriz, devolvemos eles a suas respectivas posições
+  if (media_vf != None) and (media_vm != None):
+    if np.iscomplexobj(matriz_orig):
+      matriz_result = np.zeros((dim_matriz, dim_matriz), complex)
+    else:
+      matriz_result = np.zeros((dim_matriz, dim_matriz))
+    for i in range(dim_matriz):
+      for j in range(dim_matriz):
+        if i == j:
+          matriz_result[i,j] = media_vf
+        else:
+          matriz_result[i,j] = media_vm
+  return matriz_result
+
+# # # # # # # # # # # # # # #
+#  Entradas do usuário - LT #
+# # # # # # # # # # # # # # #
+def getDadosLinha():
+  print("Dados da Linha de Transmissão")
+  numFases = int(input("\nForneça a quantidade de Fases: ").strip())
+  numNeutros = int(input("Forneça a quantidade de Neutros: ").strip())
+  numPararaios = int(input("Forneça a quantidade de Para-Raios: ").strip())
+  ltExt_km = float(input("Forneça a extensão da LT (Km): ").strip().replace(",", "."))
+  return numPararaios, numNeutros, numFases, ltExt_km
+
+def showListaCondutores():
+  lista_condutores = "\nLista de Condutores Disponíveis: (Fonte: Cabos de Alumínio Nu com Alma de Aço - CAA - Série KCMIL)\n"
+  for key in TABELA_MCM_NEXANS:
+    lista_condutores += key.capitalize() + ", "
+  lista_condutores = lista_condutores[:-2] + "."
+  print(f"{lista_condutores}")
+
+def selectCondutor(tipoCondutor):
+  result = None
+  while result == None:
+    showListaCondutores()
+    tipoCondutor = TTipoCondutor(tipoCondutor)
+    print(f"\nDados do Condutor - {tipoCondutor.name}")
+    nomeCondutor = input(f"Forneça o nome do condutor utilizado em cada {str(tipoCondutor.name).strip().lower()}, conforme a tabela acima: ").upper()
+    if TABELA_MCM_NEXANS.get(nomeCondutor) != None:
+      result = TABELA_MCM_NEXANS[nomeCondutor]
+    else:
+      pause = input("\nOpção inválida. Pressione ENTER para tentar novamente.")
+  return result
+
+def atualizarIndices(num_Pararaios, num_Neutros, num_Fases):
+  # Atualiza as listas de indices para cada grupo de condutor
+  dim_matriz = num_Pararaios + num_Neutros + num_Fases
+  index_pararaios = list(range(0, num_Pararaios))
+  index_neutros = list(range(num_Pararaios, num_Pararaios+num_Neutros))
+  index_fases = list(range(num_Pararaios+num_Neutros, dim_matriz))  
+  return index_pararaios, index_neutros, index_fases
+
+
+# # # # # # # # # # # # # # # # # # #
+#  Entradas do usuário - condutores #
+# # # # # # # # # # # # # # # # # # #
+def getDadosCondutores(numPararaios, numNeutros):
+  # Dados das fases
+  condutor = selectCondutor(TTipoCondutor.FASE)
+  fase_rmg_m = condutor[FIELD_RMG_M]
+  fase_rca60hz = condutor[FIELD_RESIST_CA_60HZ_75C_OHMdivKM]
+  # Dados dos neutros
+  neutro_rmg_m = 0
+  neutro_rca60hz = 0
+  if numNeutros:
+    condutor = selectCondutor(TTipoCondutor.NEUTRO)
+    neutro_rmg_m = condutor[FIELD_RMG_M]
+    neutro_rca60hz = condutor[FIELD_RESIST_CA_60HZ_75C_OHMdivKM]
+  # Dados de pararaios
+  pararaio_rmg_m = 0
+  pararaio_rca60hz = 0
+  if numPararaios:
+    #condutor = selectCondutor(TTipoCondutor.PARA_RAIO)
+    #pararaio_rmg_m = condutor[FIELD_RMG_M]
+    #pararaio_rca60hz = condutor[FIELD_RESIST_CA_60HZ_75C_OHMdivKM]
+    pararaio_rmg_m = float(input("\nForneça o RMG do cabo de para-raio (m): ").strip().replace(",", "."))
+    pararaio_rca60hz = float(input("Forneça a resistência CA60Hz a 75°C do cabo de para-raio (Ohm/km): ").strip().replace(",", "."))
+  return pararaio_rmg_m, pararaio_rca60hz, neutro_rmg_m, neutro_rca60hz, fase_rmg_m, fase_rca60hz
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# Dimensionamento das matrizes e indexação de cada grupo de condutor  #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+def getDimensaoMatriz(numPararaios, numNeutros, numFases):
+  dim_matriz = numPararaios + numNeutros + numFases
+  # Montamos uma lista de indices para cada grupo de condutor
+  index_pararaios, index_neutros, index_fases = atualizarIndices(numPararaios, numNeutros, numFases)
+  return dim_matriz, index_pararaios, index_neutros, index_fases
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # #
+# Entradas do usuário - Posições dos condutores #
+# # # # # # # # # # # # # # # # # # # # # # # # #
+def getPosicoesCondutores(index_pararaios, index_neutros, index_fases):
+  print("Suponha que cada condutor possua um valor para ""x"" e ""y"", simulando um plano cartesiano e que: ")
+  print("* y=0 representa o solo")
+  print("* x=0 é a posição horizontal do condutor mais a esquerda.")
+  print("Apresente os valores em metros.")
+  dim_matriz = len(index_pararaios) + len(index_neutros) + len(index_fases)
+  posicoes_cond = np.zeros((dim_matriz, 2))
+  posicoes_img = np.zeros((dim_matriz, 2))
+  for i in range(dim_matriz):
+    if i in index_pararaios:
+      posicoes_cond[i,POS_X] = float(input(f"\n\nForneça a coordenada x do para-raio {i+1} (m): ").strip().replace(",", "."))
+      posicoes_cond[i,POS_Y] = float(input(f"Forneça a coordenada y do para-raio {i+1} (m): ").strip().replace(",", "."))
+    elif i in index_neutros:
+      posicoes_cond[i,POS_X] = float(input(f"\nForneça a coordenada x do neutro {(i-index_neutros[0])+1} (m): ").strip().replace(",", "."))
+      posicoes_cond[i,POS_Y] = float(input(f"Forneça a coordenada y do neutro {(i-index_neutros[0])+1} (m): ").strip().replace(",", "."))
+    elif i in index_fases:
+      posicoes_cond[i,POS_X] = float(input(f"\nForneça a coordenada x da fase {(i-index_fases[0])+1} (m): ").strip().replace(",", "."))
+      posicoes_cond[i,POS_Y] = float(input(f"Forneça a coordenada y da fase {(i-index_fases[0])+1} (m): ").strip().replace(",", "."))
+    posicoes_img[i,POS_X] = posicoes_cond[i,POS_X]
+    posicoes_img[i,POS_Y] = posicoes_cond[i,POS_Y]*-1
+  return posicoes_cond, posicoes_img
+
+
+# # # # # # # # # # # # # # # 
+# Calculando as distâncias  #
+# # # # # # # # # # # # # # #
+def getDistanciasCondutores(index_pararaios, index_neutros, index_fases, pararaio_rmg_m, neutro_rmg_m, fase_rmg_m, posicoes_cond, posicoes_img):
+  # Distâncias entre os condutores
+  dim_matriz = len(index_pararaios) + len(index_neutros) + len(index_fases)
+  distancias = np.zeros((dim_matriz, dim_matriz))
+  for i in range(dim_matriz):
+    for j in range(dim_matriz):
+      if i == j:
+        if i in index_pararaios:
+          distancias[i,j] = pararaio_rmg_m
+        elif i in index_neutros:
+          distancias[i,j] = neutro_rmg_m
+        elif i in index_fases:
+          distancias[i,j] = fase_rmg_m
+      elif distancias[j,i]:
+        distancias[i,j] = distancias[j,i]
+      else:
+        distancias[i,j] = np.sqrt((posicoes_cond[i,POS_X]-posicoes_cond[j,POS_X])**2 + (posicoes_cond[i,POS_Y]-posicoes_cond[j,POS_Y])**2)
+  # Distâncias entre os condutores e as imagens
+  distancias_cond_img = np.zeros((dim_matriz, dim_matriz))
+  for index_cond in range(dim_matriz):
+    for index_img in range(dim_matriz):
+      if distancias_cond_img[index_img, index_cond]:
+        distancias_cond_img[index_cond, index_img] = distancias_cond_img[index_img, index_cond]
+      else:
+        distancias_cond_img[index_cond, index_img] = np.sqrt((posicoes_cond[index_cond,POS_X]-posicoes_img[index_img,POS_X])**2 + (posicoes_cond[index_cond,POS_Y]-posicoes_img[index_img,POS_Y])**2)
+  return distancias, distancias_cond_img
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Conferência visual do usuário sobre a LT apresentada  #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+def checkVisualLT(index_pararaios, index_neutros, index_fases, posicoes_cond):
+  # Cria um gráfico
+  G = nx.Graph()
+  dim_matriz = len(index_pararaios) + len(index_neutros) + len(index_fases)
+  # Adiciona cada um dos condutores como nós com o atributo de posição
+  for i in range(dim_matriz):
+    if i in index_pararaios:
+      G.add_node(f"PR{i+1}", pos=(posicoes_cond[i,POS_X], posicoes_cond[i,POS_Y]))
+    elif i in index_neutros:
+      G.add_node(f"N{(i-index_neutros[0])+1}", pos=(posicoes_cond[i,POS_X], posicoes_cond[i,POS_Y]))
+    elif i in index_fases:
+      G.add_node(f"F{(i-index_fases[0])+1}", pos=(posicoes_cond[i,POS_X], posicoes_cond[i,POS_Y]))
+  # Calcula as distâncias para plotagem e adiciona as arestas
+  nomes_dos_nos = list(G.nodes)
+  for i in range(len(nomes_dos_nos)):
+    for j in range(i + 1, len(nomes_dos_nos)):
+      no1 = nomes_dos_nos[i]
+      no2 = nomes_dos_nos[j]
+      # Obtém as posições
+      pos1 = G.nodes[no1]['pos']
+      pos2 = G.nodes[no2]['pos']
+      # Calcula a distância entre os pontos
+      distancia = math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
+      # Adiciona a aresta com a distância como atributo "comp"
+      G.add_edge(no1, no2, comp=distancia)
+  # Prepara o gráfico para a visualização
+  pos = nx.get_node_attributes(G, 'pos')
+  edge_labels = { (u, v): f"{d['comp']:.2f} m" for u, v, d in G.edges(data=True) }
+  # Configura o plot, controlando o tamanho da figura
+  plt.figure(figsize=(8, 6))
+  ax = plt.gca()
+  plt.title("Disposição Física dos elementos da LT")
+  plt.xlabel("Posição X (m)")
+  plt.ylabel("Altura Y (m)")
+  # Desenha alguns elementos do gráfico em memória
+  nx.draw_networkx_nodes(G, pos, node_size=500, node_color='skyblue')
+  nx.draw_networkx_edges(G, pos, edge_color='gray')
+  nx.draw_networkx_labels(G, pos, font_size=12, font_weight='bold')
+  """
+  Comentamos a linha abaixo para printar as distâncias fora da linha de distância, evitando sobreposições
+  nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_color='red')
+  """
+  # Vamos fixar um "offset" entre o texto e a linha de distância
+  offset_txt_dist = 0.3
+  for edge in G.edges():
+    # Obtém as posições dos dois nós da aresta
+    pos1 = pos[edge[0]]
+    pos2 = pos[edge[1]]
+    # Calcula o ponto médio da linha
+    mid_x = (pos1[0] + pos2[0]) / 2
+    mid_y = (pos1[1] + pos2[1]) / 2
+    # Calcula o vetor da linha e seu comprimento
+    dx = pos2[0] - pos1[0]
+    dy = pos2[1] - pos1[1]
+    length = math.sqrt(dx**2 + dy**2)
+    # Calcula o vetor perpendicular (troca dx e dy e inverte o sinal de um) e divide pelo comprimento
+    if length > 0:
+      perp_dx = -dy / length
+      perp_dy = dx / length
+    else: # caso de um nó conectado a ele mesmo (improvável ...)
+      perp_dx, perp_dy = 0, 1
+    # Calcula a posição final do rótulo
+    label_x = mid_x + offset_txt_dist * perp_dx
+    label_y = mid_y + offset_txt_dist * perp_dy
+    # Obtém o texto do rótulo
+    label_text = f"{G.edges[edge]['comp']:.2f} m"
+    # Desenha o texto na nova posição, em memória
+    ax.text(label_x, label_y, label_text,
+            ha='center', va='center', color='red',
+            bbox=dict(facecolor='white', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2'))
+  # Desenha a linha do solo (y=0), ainda em memória
+  min_x_val = min(p[0] for p in pos.values())
+  max_x_val = max(p[0] for p in pos.values())
+  ax.axhline(y=0, color='darkgreen', linestyle='-', linewidth=2, label='Solo (y=0)')
+  # Ajusta a posição do texto 'SOLO' para ficar centralizado na linha do solo
+  ax.text((min_x_val + max_x_val) / 2, -1.5, 'SOLO', color='darkgreen', ha='center')
+  # Desenha a linha de altura de cada condutor até o solo, ainda em memória
+  for nome, p in pos.items():
+    # Linha tracejada da altura
+    ax.plot([p[0], p[0]], [0, p[1]], color='orange', linestyle='--')
+    # Texto com o valor da altura
+    ax.text(p[0] + 0.1, p[1] / 2, f'h_{nome} = {p[1]:.2f} m', color='darkorange', rotation=0, va='center', ha='left', bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
+  # Ajusta os limites do plot para melhor visualização e plota o gráfico
+  min_y = -3 # Deixar um espaço abaixo do solo
+  max_y = max(p[1] for p in pos.values()) + 3 # Um pouco acima do condutor mais alto
+  ax.set_xlim(min_x_val - 1, max_x_val + 1) # Pequena margem no X
+  ax.set_ylim(min_y, max_y) # Sem margem no Y
+  plt.grid(True, linestyle=':', alpha=0.6)
+  plt.legend()
+  plt.tight_layout() # Ajusta automaticamente os parâmetros da subplotagem para que ela se encaixe no espaço da figura.
+  plt.show()
+  # Caso queira salvar o arquivo ...
+  #plt.savefig("disposicao_condutores.png")
+  #print("Gráfico 'disposicao_condutores.png' gerado com sucesso.")
+    
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Calculando as resistências totais de cada tipo de condutor  #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+def getResistenciasTotais(ltExt_km, pararaio_rca60hz, neutro_rca60hz, fase_rca60hz): 
+  rca_pararaio_tot = pararaio_rca60hz * ltExt_km
+  rca_neutro_tot = neutro_rca60hz * ltExt_km
+  rca_fase_tot = fase_rca60hz * ltExt_km
+  rca_terra_tot = W * U_0 * (ltExt_km*1000) / 8
+  return rca_pararaio_tot, rca_neutro_tot, rca_fase_tot, rca_terra_tot 
+
+
+# # # # # # # # # # # # # # # # # # #
+# Calculando a matriz de impedância #
+# # # # # # # # # # # # # # # # # # #
+def calcularMatrizImpedancia(index_pararaios, index_neutros, index_fases, rca_pararaio_tot, rca_neutro_tot, rca_fase_tot, rca_terra_tot, ltExt_km, distancias):
+  numPararaios = len(index_pararaios)
+  numNeutros = len(index_neutros)
+  numFases = len(index_fases)
+  dim_matriz = numPararaios + numNeutros + numFases
+  m1 = np.zeros((dim_matriz, dim_matriz))
+  m2 = np.zeros((dim_matriz, dim_matriz))
+  m3 = np.zeros((dim_matriz, dim_matriz), dtype=complex)
+  m4 = np.zeros((dim_matriz, dim_matriz), dtype=complex)
+  for i in range(dim_matriz):
+    for j in range(dim_matriz):
+      if i == j:
+        # M1 -> Resistências dos condutores
+        if i in index_pararaios:
+          m1[i,j] = rca_pararaio_tot
+        elif i in index_neutros:
+          m1[i,j] = rca_neutro_tot
+        elif i in index_fases:
+          m1[i,j] = rca_fase_tot
+      # M2 -> Resistências de terra
+      m2[i,j] = rca_terra_tot
+      # M3 -> ln (delta)
+      m3[i,j] = ((1j * W * U_0 * (ltExt_km*1000)) / (2 * math.pi)) * math.log(DELTA)
+      # M4 -> ln (distâncias)
+      m4[i,j] = ((-1j * W * U_0 * (ltExt_km*1000)) / (2 * math.pi)) * math.log(distancias[i,j])
+  print(f"* * * * * * * * * * * * * * * * *")
+  print(f"*     Cálculo de Impedância     *")
+  print(f"* * * * * * * * * * * * * * * * *")
+  print(f"\n - Matriz M1:\n {m1}")
+  print(f"\n - Matriz M2:\n {m2}")
+  print(f"\n - Matriz M3:\n {m3}")
+  print(f"\n - Matriz M4:\n {m4}")
+  # Somando as matrizes M1, M2, M3 e M4
+  matriz_z = m1 + m2 + m3 + m4
+  print(f"\n -> Matriz Z:\n {matriz_z}")
+  matriz_z_med = getMatrizValoresMedios(dim_matriz, matriz_z)
+  if matriz_z_med != None:
+    print(f"\n -> Matriz Z Média (Zf e Zm):\n {matriz_z_med}")
+  while (dim_matriz)>3:
+    # Calcula a matriz reduzida
+    matriz_reduzida = getMatrizReduzida(matriz_z, index_pararaios, index_neutros, index_fases)
+    if numPararaios > 0:
+      numPararaios -= 1
+    elif numNeutros > 0:
+      numNeutros -= 1
+    dim_matriz = numPararaios + numNeutros + numFases
+    print(f"\n -> Matriz Zred:   [Para-Raios={numPararaios}, Neutros={numNeutros}, Fases={numFases}]")
+    print(f" {matriz_reduzida}")
+    matriz_red_med = getMatrizValoresMedios(dim_matriz, matriz_reduzida)
+    if matriz_red_med != None:
+      print(f"\n -> Matriz Zred Média (Zf e Zm):\n {matriz_red_med}")
+    # Atualiza os índices
+    index_pararaios, index_neutros, index_fases = atualizarIndices(numPararaios, numNeutros, numFases)
+  
+
+# # # # # # # # # # # # # # # # # # # #
+# Calculando a matriz de Capacitância #
+# # # # # # # # # # # # # # # # # # # #
+def calcularMatrizCapacitancia(dim_matriz, ltExt_km, distancias, distancias_cond_img):
+  # Primeiro, calculamos a matriz de coeficientes de potencial
+  matriz_cp = np.zeros((dim_matriz, dim_matriz))
+  for i in range(dim_matriz):
+    for j in range(dim_matriz):
+      matriz_cp[i,j] = (1 / (2 * math.pi * E_0 * (ltExt_km*1000) )) * math.log(distancias_cond_img[i,j] / distancias[i,j])
+  # Calcula a matriz de capacitância a partir da inversa da matriz de coeficientes de potencial
+  matriz_c = inverterMatriz(matriz_cp)
+  print(f"\n\n* * * * * * * * * * * * * * * * * *")
+  print(f"*     Cálculo de Capacitância     *")
+  print(f"* * * * * * * * * * * * * * * * * *")
+  print(f"\n - Matriz CP:\n {matriz_cp}")
+  print(f"\n -> Matriz C:\n {matriz_c}")
+  matriz_c_med = getMatrizValoresMedios(dim_matriz, matriz_c)
+  if len(matriz_c_med) > 0:
+    diag_prin_neg = np.ones((dim_matriz, dim_matriz))
+    for i in range(dim_matriz): 
+      for j in range(dim_matriz):
+        if i == j:
+          diag_prin_neg[i,j] = -1
+    matriz_c_med = matriz_c_med * -1 * diag_prin_neg
+    print(f"\n -> Matriz C Média (Cf e Cm):\n {matriz_c_med}")
+
+
+# # # # # # # # # # # # # #
+# Função de execução Main #
+# # # # # # # # # # # # # #
+def main():
+  running = True
+  while running:
+    ltChecked = False
+    while ltChecked == False:
+      clear_output()
+      numPararaios, numNeutros, numFases, ltExt_km = getDadosLinha()
+      clear_output()
+      pararaio_rmg_m, pararaio_rca60hz, neutro_rmg_m, neutro_rca60hz, fase_rmg_m, fase_rca60hz = getDadosCondutores(numPararaios, numNeutros)
+      dim_matriz, index_pararaios, index_neutros, index_fases = getDimensaoMatriz(numPararaios, numNeutros, numFases)
+      clear_output()
+      posicoes_cond, posicoes_img = getPosicoesCondutores(index_pararaios, index_neutros, index_fases)
+      distancias, distancias_cond_img = getDistanciasCondutores(index_pararaios, index_neutros, index_fases, pararaio_rmg_m, neutro_rmg_m, fase_rmg_m, posicoes_cond, posicoes_img)
+      clear_output()
+      input("A seguir, será exibida a representação gráfica da linha informada. Atente-se às dimensões e distâncias ...\nPressione ENTER para continuar")
+      print("\n\n\nATENÇÃO !!\nFeche a janela com a plotagem da LT antes de responder a questão a seguir ...")
+      checkVisualLT(index_pararaios, index_neutros, index_fases, posicoes_cond)
+      clear_output()
+      ltChecked = input("\nAs dimensões apresentadas são compatíveis com a LT desejada? (S/N) : ").strip().lower() == "s"
+    clear_output()
+    rca_pararaio_tot, rca_neutro_tot, rca_fase_tot, rca_terra_tot = getResistenciasTotais(ltExt_km, pararaio_rca60hz, neutro_rca60hz, fase_rca60hz)
+    calcularMatrizImpedancia(index_pararaios, index_neutros, index_fases, rca_pararaio_tot, rca_neutro_tot, rca_fase_tot, rca_terra_tot, ltExt_km, distancias)
+    calcularMatrizCapacitancia(dim_matriz, ltExt_km, distancias, distancias_cond_img)
+    checkVisualLT(index_pararaios, index_neutros, index_fases, posicoes_cond)
+    running = input("\n\nDeseja realizar o cálculo de outra LT? (S/N) : ").strip().lower() == "s"
+
+main()   
