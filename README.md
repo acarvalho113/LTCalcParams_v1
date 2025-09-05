@@ -8,13 +8,13 @@
 - Quantidade de para-raios;
 - Extensão da LT (km);
 - Condutor utilizado na fase e nos neutros [Fonte: Cabos de Alumínio Nu com Alma de Aço - CAA (Série KCMIL)];
+- Dados do condutor utilizado no para-raios;
 - Posições baseadas em coordenadas cartesianas de cada grupo de condutores (fase, neutros e para-raios), onde x=0 é o condutor mais à esquerda e y=0 é o solo;
 
 ## Saídas para o usuário:
 - Matrizes M1, M2, M3 e M4 (componentes da matriz de impedância);
-- Matriz de impedância e sua média, caso necessário;
-- Matriz reduzida, para casos onde sejam indicados neutros e/ou para-raios e sua média, caso necessário;
-- Matriz de coeficientes de potencial;
+- Matriz de impedância, reduzida a 3x3, quando houver para-raios ou neutros e sua média, caso necessário;
+- Matriz de coeficientes de potencial, reduzida a 3x3, quando houver para-raios ou neutros e sua média, caso necessário;
 - Matriz de capacitância e sua média, caso necessário.
 
 ## Fluxo do sistema:
