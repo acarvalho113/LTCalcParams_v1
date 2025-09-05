@@ -289,28 +289,29 @@ def atualizarIndices(num_Pararaios, num_Neutros, num_Fases):
 # # # # # # # # # # # # # # # # # # #
 #  Entradas do usuário - condutores #
 # # # # # # # # # # # # # # # # # # #
+# Retorna o raio a partir do rmg do condutor informado
+def getRaioFromRmg(rmg_condutor):
+  return rmg_condutor * math.exp(1/4)
+
 def getDadosCondutores(numPararaios, numNeutros):
   # Dados das fases
   condutor = selectCondutor(TTipoCondutor.FASE)
-  fase_rmg_m = condutor[FIELD_RMG_M]
+  fase_raio_m = getRaioFromRmg(condutor[FIELD_RMG_M])
   fase_rca60hz = condutor[FIELD_RESIST_CA_60HZ_75C_OHMdivKM]
   # Dados dos neutros
-  neutro_rmg_m = 0
+  neutro_raio_m = 0
   neutro_rca60hz = 0
   if numNeutros:
     condutor = selectCondutor(TTipoCondutor.NEUTRO)
-    neutro_rmg_m = condutor[FIELD_RMG_M]
+    neutro_raio_m = getRaioFromRmg(condutor[FIELD_RMG_M])
     neutro_rca60hz = condutor[FIELD_RESIST_CA_60HZ_75C_OHMdivKM]
   # Dados de pararaios
-  pararaio_rmg_m = 0
+  pararaio_raio_m = 0
   pararaio_rca60hz = 0
   if numPararaios:
-    #condutor = selectCondutor(TTipoCondutor.PARA_RAIO)
-    #pararaio_rmg_m = condutor[FIELD_RMG_M]
-    #pararaio_rca60hz = condutor[FIELD_RESIST_CA_60HZ_75C_OHMdivKM]
-    pararaio_rmg_m = float(input("\nForneça o RMG do cabo de para-raio (m): ").strip().replace(",", "."))
+    pararaio_raio_m = float(input("\nForneça o raio do cabo de para-raio (m): ").strip().replace(",", "."))
     pararaio_rca60hz = float(input("Forneça a resistência CA60Hz a 75°C do cabo de para-raio (Ohm/km): ").strip().replace(",", "."))
-  return pararaio_rmg_m, pararaio_rca60hz, neutro_rmg_m, neutro_rca60hz, fase_rmg_m, fase_rca60hz
+  return pararaio_raio_m, pararaio_rca60hz, neutro_raio_m, neutro_rca60hz, fase_raio_m, fase_rca60hz
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # Dimensionamento das matrizes e indexação de cada grupo de condutor  #
@@ -351,7 +352,7 @@ def getPosicoesCondutores(index_pararaios, index_neutros, index_fases):
 # # # # # # # # # # # # # # # 
 # Calculando as distâncias  #
 # # # # # # # # # # # # # # #
-def getDistanciasCondutores(index_pararaios, index_neutros, index_fases, pararaio_rmg_m, neutro_rmg_m, fase_rmg_m, posicoes_cond, posicoes_img):
+def getDistanciasCondutores(index_pararaios, index_neutros, index_fases, pararaio_raio_m, neutro_raio_m, fase_raio_m, posicoes_cond, posicoes_img):
   # Distâncias entre os condutores
   dim_matriz = len(index_pararaios) + len(index_neutros) + len(index_fases)
   distancias = np.zeros((dim_matriz, dim_matriz))
@@ -359,11 +360,11 @@ def getDistanciasCondutores(index_pararaios, index_neutros, index_fases, pararai
     for j in range(dim_matriz):
       if i == j:
         if i in index_pararaios:
-          distancias[i,j] = pararaio_rmg_m
+          distancias[i,j] = pararaio_raio_m
         elif i in index_neutros:
-          distancias[i,j] = neutro_rmg_m
+          distancias[i,j] = neutro_raio_m
         elif i in index_fases:
-          distancias[i,j] = fase_rmg_m
+          distancias[i,j] = fase_raio_m
       elif distancias[j,i]:
         distancias[i,j] = distancias[j,i]
       else:
@@ -599,13 +600,13 @@ def main():
     clear_output()
     numPararaios, numNeutros, numFases, ltExt_km = getDadosLinha()
     clear_output()
-    pararaio_rmg_m, pararaio_rca60hz, neutro_rmg_m, neutro_rca60hz, fase_rmg_m, fase_rca60hz = getDadosCondutores(numPararaios, numNeutros)
+    pararaio_raio_m, pararaio_rca60hz, neutro_raio_m, neutro_rca60hz, fase_raio_m, fase_rca60hz = getDadosCondutores(numPararaios, numNeutros)
     dim_matriz, index_pararaios, index_neutros, index_fases = getDimensaoMatriz(numPararaios, numNeutros, numFases)
     ltChecked = False
     while ltChecked == False:
       clear_output()
       posicoes_cond, posicoes_img = getPosicoesCondutores(index_pararaios, index_neutros, index_fases)
-      distancias, distancias_cond_img = getDistanciasCondutores(index_pararaios, index_neutros, index_fases, pararaio_rmg_m, neutro_rmg_m, fase_rmg_m, posicoes_cond, posicoes_img)
+      distancias, distancias_cond_img = getDistanciasCondutores(index_pararaios, index_neutros, index_fases, pararaio_raio_m, neutro_raio_m, fase_raio_m, posicoes_cond, posicoes_img)
       clear_output()
       input("A seguir, será exibida a representação gráfica da linha informada. Atente-se às dimensões e distâncias ...\nPressione ENTER para continuar")
       print("\n\n\nATENÇÃO !!\nFeche a janela com a plotagem da LT antes de responder a questão a seguir ...")
