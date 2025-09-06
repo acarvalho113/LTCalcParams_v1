@@ -134,68 +134,45 @@ def getMatrizReduzida(matriz_Atual, index_Pararaios, index_Neutros, index_Fases)
   num_Neutros = len(index_Neutros)
   num_Fases = len(index_Fases)
   if np.iscomplexobj(matriz_Atual):
-    matriz_ff = np.zeros((num_Fases, num_Fases), dtype=complex)
+    matriz_kk = np.zeros((num_Fases, num_Fases), dtype=complex) 
   else:
-    matriz_ff = np.zeros((num_Fases, num_Fases))
-  matriz_fn = None
-  matriz_nf = None
-  matriz_nn = None
-  matriz_fr = None
-  matriz_rf = None
-  matriz_rr = None
-  if num_Neutros > 0:
+    matriz_kk = np.zeros((num_Fases, num_Fases))
+  matriz_ke = None
+  matriz_ek = None
+  matriz_ee = None
+  if (num_Pararaios+num_Neutros) > 0:
     if np.iscomplexobj(matriz_Atual):
-      matriz_fn = np.zeros((num_Fases, num_Neutros), dtype=complex)
-      matriz_nf = np.zeros((num_Neutros, num_Fases), dtype=complex)
-      matriz_nn = np.zeros((num_Neutros, num_Neutros), dtype=complex)
+      matriz_ke = np.zeros((num_Fases, num_Pararaios+num_Neutros), dtype=complex)
+      matriz_ek = np.zeros((num_Pararaios+num_Neutros, num_Fases), dtype=complex)
+      matriz_ee = np.zeros((num_Pararaios+num_Neutros, num_Pararaios+num_Neutros), dtype=complex)
     else:
-      matriz_fn = np.zeros((num_Fases, num_Neutros))
-      matriz_nf = np.zeros((num_Neutros, num_Fases))
-      matriz_nn = np.zeros((num_Neutros, num_Neutros))
-  if num_Pararaios > 0:
-    if np.iscomplexobj(matriz_Atual):
-      matriz_fr = np.zeros((num_Fases, num_Pararaios), dtype=complex)
-      matriz_rf = np.zeros((num_Pararaios, num_Fases), dtype=complex)
-      matriz_rr = np.zeros((num_Pararaios, num_Pararaios), dtype=complex)
-    else:
-      matriz_fr = np.zeros((num_Fases, num_Pararaios))
-      matriz_rf = np.zeros((num_Pararaios, num_Fases))
-      matriz_rr = np.zeros((num_Pararaios, num_Pararaios))
+      matriz_ke = np.zeros((num_Fases, num_Pararaios+num_Neutros))
+      matriz_ek = np.zeros((num_Pararaios+num_Neutros, num_Fases))
+      matriz_ee = np.zeros((num_Pararaios+num_Neutros, num_Pararaios+num_Neutros))
   dim_matriz = num_Fases + num_Neutros + num_Pararaios
+  index_Keep = index_Fases
+  index_Eliminate = list()
+  for i in index_Pararaios:
+    index_Eliminate.append(i)
+  for i in index_Neutros:
+    index_Eliminate.append(i)
   for i in range(dim_matriz):
     for j in range(dim_matriz):
-      if i in index_Neutros and j in index_Neutros:
-        matriz_nn[(i-index_Neutros[0]),(j-index_Neutros[0])] = matriz_Atual[i,j]
-      elif i in index_Pararaios and j in index_Pararaios:
-        matriz_rr[(i-index_Pararaios[0]),(j-index_Pararaios[0])] = matriz_Atual[i,j]
-      elif i in index_Neutros and j in index_Fases:
-        matriz_nf[(i-index_Neutros[0]),(j-index_Fases[0])] = matriz_Atual[i,j]
-      elif i in index_Pararaios and j in index_Fases:
-        matriz_rf[(i-index_Pararaios[0]),(j-index_Fases[0])] = matriz_Atual[i,j]
-      elif i in index_Fases and j in index_Neutros:
-        matriz_fn[(i-index_Fases[0]),(j-index_Neutros[0])] = matriz_Atual[i,j]
-      elif i in index_Fases and j in index_Pararaios:
-        matriz_fr[(i-index_Fases[0]),(j-index_Pararaios[0])] = matriz_Atual[i,j]
-      elif i in index_Fases and j in index_Fases:
-        matriz_ff[(i-index_Fases[0]),(j-index_Fases[0])] = matriz_Atual[i,j]
-  if matriz_rr:
-    print(f"\n - Matriz rr:\n {matriz_rr}")
-    print(f"\n - Matriz rf:\n {matriz_rf}")
-    print(f"\n - Matriz fr:\n {matriz_fr}")
-  if matriz_nn:
-    print(f"\n - Matriz nn:\n {matriz_nn}")
-    print(f"\n - Matriz nf:\n {matriz_nf}")
-    print(f"\n - Matriz fn:\n {matriz_fn}")
-  print(f"\n - Matriz ff:\n {matriz_ff}")
-  # Matriz reduzida
-  if np.iscomplexobj(matriz_Atual):
-    matriz_red = np.zeros((dim_matriz-1, dim_matriz-1), dtype=complex)
-  else:
-    matriz_red = np.zeros((dim_matriz-1, dim_matriz-1))
-  if matriz_rr:
-    matriz_red = matriz_ff - (matriz_fr * inverterMatriz(matriz_rr) * matriz_rf)
-  elif matriz_nn:
-    matriz_red = matriz_ff - (matriz_fn * inverterMatriz(matriz_nn) * matriz_nf)
+      if i in index_Eliminate and j in index_Eliminate:
+        matriz_ee[(i-index_Eliminate[0]),(j-index_Eliminate[0])] = matriz_Atual[i,j]
+      elif i in index_Eliminate and j in index_Keep:
+        matriz_ek[(i-index_Eliminate[0]),(j-index_Keep[0])] = matriz_Atual[i,j]
+      elif i in index_Keep and j in index_Eliminate:
+        matriz_ke[(i-index_Keep[0]),(j-index_Eliminate[0])] = matriz_Atual[i,j]
+      elif i in index_Keep and j in index_Keep:
+        matriz_kk[(i-index_Keep[0]),(j-index_Keep[0])] = matriz_Atual[i,j]
+  if (num_Pararaios+num_Neutros) > 0:
+    print(f"\n - Matriz ee [para-raio,para-raio] e [neutro,neutro]:\n {matriz_ee}")
+    print(f"\n - Matriz ek [para-raio,fase] e [neutro,fase]:\n {matriz_ek}")
+    print(f"\n - Matriz ke [fase,para-raio] e [fase,neutro]:\n {matriz_ke}")
+  print(f"\n - Matriz kk [fase,fase]:\n {matriz_kk}")
+  # Matriz reduzida - o "@" é um operador do Numpy para produto entre matrizes
+  matriz_red = matriz_kk - (matriz_ke @ inverterMatriz(matriz_ee) @ matriz_ek)
   return matriz_red
 
 def getMatrizValoresMedios(dim_matriz, matriz_orig):
@@ -284,11 +261,9 @@ def getDadosLinha():
     tempAmbiente = float(TEMP_AMBIENTE_DEF)
   try:
     resistividadeSolo = input(f"Forneça a resistividade do solo, ou não informe nada, para considerar {RHO_SOLO_DEF} Ohm.m (Ohm.m): ").strip().replace(",", ".")
-    if resistividadeSolo:
+    if resistividadeSolo != None:
       resistividadeSolo = float(resistividadeSolo)
     else:
-      resistividadeSolo = float(RHO_SOLO_DEF)
-    if resistividadeSolo == 0:
       resistividadeSolo = float(RHO_SOLO_DEF)
   except ValueError:
     resistividadeSolo = float(RHO_SOLO_DEF)
@@ -596,11 +571,15 @@ def calcularMatrizImpedancia(index_pararaios, index_neutros, index_fases, rca_pa
           m1[i,j] = rca_neutro_tot
         elif i in index_fases:
           m1[i,j] = rca_fase_tot
-      # M2 -> Resistências de terra
-      m2[i,j] = rca_terra_tot
-      # M3 -> ln (delta)
-      delta = 658 * math.pow(resistividadeSolo / 60, 0.5) # Cálculo do delta baseado no RHÔ informado
-      m3[i,j] = ((1j * W * U_0 * (ltExt_km*1000)) / (2 * math.pi)) * math.log(delta)
+      if resistividadeSolo > 0:
+        # M2 -> Resistências de terra
+        m2[i,j] = rca_terra_tot
+        # M3 -> ln (delta)      
+        logdelta = math.log(658 * math.pow(resistividadeSolo / 60, 0.5)) # Cálculo do delta baseado no RHÔ informado
+        m3[i,j] = ((1j * W * U_0 * (ltExt_km*1000)) / (2 * math.pi)) * logdelta
+      else:
+        m2[i,j] = 0
+        m3[i,j] = 0
       # M4 -> ln (distâncias)
       m4[i,j] = ((-1j * W * U_0 * (ltExt_km*1000)) / (2 * math.pi)) * math.log(distancias_rmg[i,j])
   print(f"* * * * * * * * * * * * * * * * *")
@@ -613,20 +592,12 @@ def calcularMatrizImpedancia(index_pararaios, index_neutros, index_fases, rca_pa
   # Somando as matrizes M1, M2, M3 e M4
   matriz_z = m1 + m2 + m3 + m4
   print(f"\n -> Matriz Z:\n {matriz_z}")
-  while (dim_matriz)>3:
+  if dim_matriz > 3:
     # Calcula a matriz reduzida
     matriz_reduzida = getMatrizReduzida(matriz_z, index_pararaios, index_neutros, index_fases)
+    print(f"\n -> Matriz Zred:\n {matriz_reduzida}")
     matriz_z = matriz_reduzida
-    if numPararaios > 0:
-      numPararaios -= 1
-    elif numNeutros > 0:
-      numNeutros -= 1
-    dim_matriz = numPararaios + numNeutros + numFases
-    print(f"\n -> Matriz Zred:   [Para-Raios={numPararaios}, Neutros={numNeutros}, Fases={numFases}]")
-    print(f" {matriz_reduzida}")
-    # Atualiza os índices
-    index_pararaios, index_neutros, index_fases = atualizarIndices(numPararaios, numNeutros, numFases)
-  matriz_zmed = getMatrizValoresMedios(dim_matriz, matriz_z)
+  matriz_zmed = getMatrizValoresMedios(numFases, matriz_z)
   if len(matriz_z) > 0:
     print(f"\n -> Matriz Z Média (Zf e Zm):\n {matriz_zmed}")
 
@@ -649,27 +620,19 @@ def calcularMatrizCapacitancia(index_pararaios, index_neutros, index_fases, ltEx
   print(f"* * * * * * * * * * * * * * * * * *")
   print(f"\n - Matriz CP:\n {matriz_cp}")
   # Reduz a matriz de coeficientes de potencial
-  while (dim_matriz)>3:
+  if dim_matriz > 3:
     # Calcula a matriz reduzida
     matriz_reduzida = getMatrizReduzida(matriz_cp, index_pararaios, index_neutros, index_fases)
+    print(f"\n - Matriz CPred:\n {matriz_reduzida}")
     matriz_cp = matriz_reduzida
-    if numPararaios > 0:
-      numPararaios -= 1
-    elif numNeutros > 0:
-      numNeutros -= 1
-    dim_matriz = numPararaios + numNeutros + numFases
-    print(f"\n - Matriz CP red:   [Para-Raios={numPararaios}, Neutros={numNeutros}, Fases={numFases}]")
-    print(f" {matriz_reduzida}")
-    # Atualiza os índices
-    index_pararaios, index_neutros, index_fases = atualizarIndices(numPararaios, numNeutros, numFases)  
   # Calcula a matriz de capacitância a partir da inversa da matriz de coeficientes de potencial
   matriz_c = inverterMatriz(matriz_cp)
   print(f"\n - Matriz C:\n {matriz_c}")
-  matriz_c_med = getMatrizValoresMedios(dim_matriz, matriz_c)
+  matriz_c_med = getMatrizValoresMedios(numFases, matriz_c)
   if len(matriz_c_med) > 0:
-    diag_prin_neg = np.ones((dim_matriz, dim_matriz))
-    for i in range(dim_matriz): 
-      for j in range(dim_matriz):
+    diag_prin_neg = np.ones((numFases, numFases))
+    for i in range(numFases): 
+      for j in range(numFases):
         if i == j:
           diag_prin_neg[i,j] = -1
     matriz_c_med = matriz_c_med * -1 * diag_prin_neg
